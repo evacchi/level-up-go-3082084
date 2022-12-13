@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"log"
-	"sync"
 )
 
 var messages = []string{
@@ -16,16 +15,18 @@ var messages = []string{
 
 // repeat concurrently prints out the given message n times
 func repeat(n int, message string) {
-	var print1 = func(message string, wg *sync.WaitGroup) {
-		defer wg.Done()
+	print1 := func(message string, ch chan struct{}) {
 		println(message)
+		ch <- struct{}{}
 	}
-	var wg sync.WaitGroup
-	wg.Add(n)
+	ch := make(chan struct{})
 	for i := 0; i < n; i++ {
-		go print1(message, &wg)
+		go print1(message, ch)
 	}
-	wg.Wait()
+	for i := 0; i < n; i++ {
+		<-ch
+	}
+
 }
 
 func main() {
