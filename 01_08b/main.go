@@ -41,15 +41,25 @@ func (f *Friends) getRandomFriend() Friend {
 }
 
 // spreadGossip ensures that all the friends in the map have heard the news
-func spreadGossip(root Friend, friends Friends) {
-	panic("NOT IMPLEMENTED")
+func spreadGossip(root Friend, friends Friends, heardGossip map[string]bool) {
+	for _, fname := range root.Friends {
+		if heardGossip[fname] {
+			continue
+		}
+		f := friends.getFriend(fname)
+		f.hearGossip()
+		heardGossip[fname] = true
+		spreadGossip(f, friends, heardGossip)
+	}
 }
 
 func main() {
 	friends := importData()
 	root := friends.getRandomFriend()
 	root.hearGossip()
-	spreadGossip(root, friends)
+	heardGossip := make(map[string]bool)
+	heardGossip[root.ID] = true
+	spreadGossip(root, friends, heardGossip)
 }
 
 // importData reads the input data from file and
