@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-//the amount of bidders we have at our auction
+// the amount of bidders we have at our auction
 const bidderCount = 10
 
 // initial wallet value for all bidders
@@ -35,10 +35,22 @@ type auctioneer struct {
 
 // runAuction and manages the auction for all the items to be sold
 // Change the signature of this function as required
-func (a *auctioneer) runAuction() {
+func (a *auctioneer) runAuction(start chan struct{}, bids chan bid) {
 	for _, item := range items {
 		log.Printf("Opening bids for %s!\n", item)
-		panic("NOT IMPLEMENTED YET")
+		for range a.bidders {
+			start <- struct{}{}
+		}
+		var winner bid
+		for i := 0; i < bidderCount; i++ {
+			cb := <-bids
+			if winner.amount < cb.amount {
+				winner = cb
+			}
+		}
+		log.Printf("%s is sold to %s for %d!\n", item,
+			winner.bidderID, winner.amount)
+		a.bidders[winner.bidderID].payBid(winner.amount)
 	}
 }
 
@@ -50,8 +62,20 @@ type bidder struct {
 
 // placeBid generates a random amount and places it on the bids channels
 // Change the signature of this function as required
-func (b *bidder) placeBid() {
-	panic("NOT IMPLEMENTED YET")
+func (b *bidder) placeBid(bidCh chan bid, wait chan struct{}) {
+	for i := 0; i < len(items); i++ {
+		<-wait
+		amount := 0
+		if b.wallet > 0 {
+			amount = rand.Intn(b.wallet)
+		}
+		b.wallet -= amount
+
+		bidCh <- bid{
+			bidderID: b.id,
+			amount:   amount,
+		}
+	}
 }
 
 // payBid subtracts the bid amount from the wallet of the auction winner
@@ -63,6 +87,9 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 	log.Println("Welcome to the LinkedIn Learning auction.")
 	bidders := make(map[string]*bidder, bidderCount)
+	bids := make(chan bid, bidderCount)
+	openBids := make(chan struct{})
+
 	for i := 0; i < bidderCount; i++ {
 		id := fmt.Sprint("Bidder ", i)
 		b := bidder{
@@ -70,12 +97,12 @@ func main() {
 			wallet: walletAmount,
 		}
 		bidders[id] = &b
-		go b.placeBid()
+		go b.placeBid(bids, openBids)
 	}
 	a := auctioneer{
 		bidders: bidders,
 	}
-	a.runAuction()
+	a.runAuction(openBids, bids)
 	log.Println("The LinkedIn Learning auction has finished!")
 }
 
